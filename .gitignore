@@ -11,8 +11,9 @@ token.json
 # Temporary processing files
 .tmp/
 
-# Claude Code local config
-.claude/
+# Claude Code local config (but keep agents)
+.claude/*
+!.claude/agents/
 
 # OS files
 .DS_Store
