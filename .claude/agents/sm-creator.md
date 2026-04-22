@@ -138,17 +138,23 @@ For each platform, write ONE caption following its Platform Tone row above. Same
 }
 ```
 
-**VIDEO — Instagram:**
+**VIDEO — Instagram** (MUST use `type: "reel"` — IG feed doesn't accept video via Buffer; only Reels do. `shouldShareToFeed: true` makes the Reel also appear in the feed grid):
 ```json
 {
   "channelId": "69dd1a05031bfa423cfc9fbd",
   "schedulingType": "automatic",
   "saveToDraft": true,
   "text": "<IG caption>",
-  "metadata": { "instagram": { "type": "post", "shouldShareToFeed": true } },
+  "metadata": { "instagram": { "type": "reel", "shouldShareToFeed": true } },
   "assets": { "videos": [{ "url": "<Drive download URL>" }] }
 }
 ```
+
+**IG video constraints (Buffer enforces per IG):**
+- Aspect ratio must be **4:5 to 9:16** (vertical). Our Drive videos are vertical per the catalog's `orientation` field — confirm before draft.
+- Duration: 5 sec to 15 min.
+- File size: ≤300 MB.
+- If the video from the planner doesn't meet these specs, return `Status: FAILED` for Instagram only with reason: "IG requires reel format (4:5–9:16 aspect); hero video is <actual orientation/ratio>."
 
 **PHOTO / GRAPHIC — Facebook** (image requires `altText`):
 ```json
