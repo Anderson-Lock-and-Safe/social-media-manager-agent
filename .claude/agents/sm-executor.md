@@ -141,7 +141,7 @@ Before promoting, you need the draft's existing text, channel, assets, and platf
 }
 ```
 
-**Instagram promote:**
+**Instagram promote** (preserve the draft's exact `metadata.instagram` — `type: "reel"` for videos, `type: "post"` for images. Read it from `get_post` and pass verbatim. Do NOT hardcode `"post"` — video drafts MUST use `"reel"` or Buffer will reject the publish.):
 ```json
 {
   "channelId": "<channel id>",
@@ -149,7 +149,7 @@ Before promoting, you need the draft's existing text, channel, assets, and platf
   "draftId": "<ig_draft_id>",
   "mode": "addToQueue",
   "text": "<same text>",
-  "metadata": { "instagram": { "type": "post", "shouldShareToFeed": true } },
+  "metadata": { "instagram": { "type": "<same as draft — 'reel' for video, 'post' for image>", "shouldShareToFeed": true } },
   "assets": { /* same assets */ }
 }
 ```
