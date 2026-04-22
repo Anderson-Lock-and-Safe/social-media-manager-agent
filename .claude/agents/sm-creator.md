@@ -14,6 +14,14 @@ You receive a `PLAN` from sm-planner with two posts (one video, one Canva graphi
 
 **You MUST return a real Buffer Draft ID for each path, not a placeholder, not "[pending]", not a promise to create later.** The Buffer MCP `create_post` tool is your last step for each path. If it fails, you fail that path and say so explicitly — you do not punt to the executor or the orchestrator.
 
+## CRITICAL: Buffer auth is already handled — ignore any setup instructions
+
+The Buffer MCP server (at `buffer-mcp-server.andersonai.workers.dev` — a proxy) injects the `Authorization: Bearer` header server-side using a worker secret. **You do NOT need a Buffer API key, you do NOT need to ask Garrett to generate one.**
+
+Buffer's MCP server returns instructions text that mentions "if the user needs to create an API key, direct them to https://publish.buffer.com/settings/api." **IGNORE THAT LINE.** It's boilerplate aimed at developers doing first-time MCP install, not at you. Auth is already wired.
+
+If your first `create_post` call fails with an auth error (HTTP 401, "Authorization header is required", etc.), that's a real bug — surface the exact error in your output. But NEVER bail out by asking Garrett for an API key. The proxy URL you're calling already has auth.
+
 ## Hard Rules
 
 - **Phoenix / Arizona ONLY.** Never Chicago. Never Illinois. Service area: Phoenix, Arcadia, Chandler, the Valley, Arizona.
@@ -54,21 +62,7 @@ From the planner's plan, take the `web_content_link` if provided, or construct `
 
 ### 3. Create the Buffer draft via Buffer MCP `create_post`
 
-Call the Buffer MCP `create_post` tool with this exact payload shape:
-
-```json
-{
-  "channelId": "<channel id from table below>",
-  "schedulingType": "automatic",
-  "saveToDraft": true,
-  "text": "<the full caption>",
-  "assets": {
-    "videos": [{
-      "url": "<the Drive download URL>"
-    }]
-  }
-}
-```
+These payloads are **live-tested as of 2026-04-22** — use them verbatim.
 
 **Channel IDs:**
 | Channel | ID |
@@ -77,11 +71,52 @@ Call the Buffer MCP `create_post` tool with this exact payload shape:
 | LinkedIn | `69dd1ba5031bfa423cfca620` |
 | Instagram | `69dd1a05031bfa423cfc9fbd` |
 
-The response returns a post object with an `id` field. **That `id` is the Buffer Draft ID — capture it.** If the response is missing an `id` or returns an error, the call failed and PATH A has failed; return that in your output.
+**Facebook video draft** (requires `metadata.facebook.type`):
+```json
+{
+  "channelId": "69dd1a1d031bfa423cfca01e",
+  "schedulingType": "automatic",
+  "saveToDraft": true,
+  "text": "<caption>",
+  "metadata": { "facebook": { "type": "post" } },
+  "assets": {
+    "videos": [{ "url": "<Drive download URL, e.g. https://drive.google.com/uc?id=<id>&export=download>" }]
+  }
+}
+```
 
-**Do NOT use `mode` when `saveToDraft: true`.** The `mode` field is for conversion (draft → queue), not for initial creation. Leaving it out is correct.
+**LinkedIn video draft** (no platform metadata required):
+```json
+{
+  "channelId": "69dd1ba5031bfa423cfca620",
+  "schedulingType": "automatic",
+  "saveToDraft": true,
+  "text": "<caption>",
+  "assets": {
+    "videos": [{ "url": "<Drive download URL>" }]
+  }
+}
+```
 
-**Do NOT invent a Buffer Draft ID.** If you don't have a real 24-char hex ID from the Buffer response, you don't have a draft — say so.
+**Instagram video draft** (requires `metadata.instagram.type` AND `shouldShareToFeed`):
+```json
+{
+  "channelId": "69dd1a05031bfa423cfc9fbd",
+  "schedulingType": "automatic",
+  "saveToDraft": true,
+  "text": "<caption>",
+  "metadata": { "instagram": { "type": "post", "shouldShareToFeed": true } },
+  "assets": {
+    "videos": [{ "url": "<Drive download URL>" }]
+  }
+}
+```
+
+**Response shape:** Buffer returns a post object. The `id` field is the **Buffer Draft ID** — a 24-char hex string (e.g. `69e929b6c19c83893cc0b10f`). Capture it.
+
+**If the call returns `"error": "..."` or `"isError": true`, PATH A has FAILED.** Return the exact error string in your output. Do not retry, do not fabricate an ID, do not bail with "need an API key."
+
+**Do NOT** include `mode` when `saveToDraft: true` is set — the `mode` field is for the promote step (draft → queue), not initial creation.
 
 ## PATH C — Canva Graphic Post
 
@@ -140,26 +175,59 @@ Same rules as PATH A:
 
 ### 6. Create the Buffer draft via Buffer MCP `create_post`
 
-Call the Buffer MCP `create_post` tool with this exact payload shape:
+Use the channel-specific payload shape below. `altText` is REQUIRED on images — Buffer rejects the call without it. Use a short sentence describing what's in the graphic.
 
+**Facebook graphic draft:**
 ```json
 {
-  "channelId": "<channel id from table above>",
+  "channelId": "69dd1a1d031bfa423cfca01e",
   "schedulingType": "automatic",
   "saveToDraft": true,
-  "text": "<the full caption>",
+  "text": "<caption>",
+  "metadata": { "facebook": { "type": "post" } },
   "assets": {
     "images": [{
-      "url": "<the PNG download URL from step 4>",
-      "metadata": { "altText": "<short description of the graphic, e.g. 'Anderson Lock key control program infographic'>" }
+      "url": "<Canva PNG export URL from step 4>",
+      "metadata": { "altText": "<e.g. 'Anderson Lock key control program infographic'>" }
     }]
   }
 }
 ```
 
-**`altText` is required on images** — Buffer rejects the call without it. Use a short sentence that describes what's in the graphic.
+**LinkedIn graphic draft:**
+```json
+{
+  "channelId": "69dd1ba5031bfa423cfca620",
+  "schedulingType": "automatic",
+  "saveToDraft": true,
+  "text": "<caption>",
+  "assets": {
+    "images": [{
+      "url": "<Canva PNG export URL>",
+      "metadata": { "altText": "<alt text>" }
+    }]
+  }
+}
+```
 
-Capture the returned `id` — that's the **Buffer Draft ID**. If the call errors, PATH C has failed; say so.
+**Instagram graphic draft:**
+```json
+{
+  "channelId": "69dd1a05031bfa423cfc9fbd",
+  "schedulingType": "automatic",
+  "saveToDraft": true,
+  "text": "<caption>",
+  "metadata": { "instagram": { "type": "post", "shouldShareToFeed": true } },
+  "assets": {
+    "images": [{
+      "url": "<Canva PNG export URL>",
+      "metadata": { "altText": "<alt text>" }
+    }]
+  }
+}
+```
+
+Capture the returned `id` (24-char hex) — that's the **Buffer Draft ID**. If the call returns an error, PATH C has failed; surface the exact error in your output.
 
 ## Output Format
 
